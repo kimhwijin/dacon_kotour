@@ -1,8 +1,6 @@
-from transformers import BertModel
-
-def test():
-    print("model test")
+from model import bert
+from torch import nn
 
 def build_model(config):
-    config.TASK
-    config.MODEL.BASE
+    pass
+    

@@ -1,4 +1,3 @@
-from distutils.command.config import config
 import os
 import yaml
 from yacs.config import CfgNode as CN
@@ -26,18 +25,21 @@ class Config(CN):
         self.DATA.BATCH_SIZE = 128
         self.DATA.PATH = './data'
         self.DATA.NAME = 'kotour'
+        self.DATA.NUM_CLASS = 128
 
         # MODEL ------------------------------------------
         self.MODEL = CN()
         self.MODEL.SCALE = 'base'
-
+        self.MODEL.HIDDEN_DIM = 768 if self.MODEL.SCALE == 'base' else 1024
         self.MODEL.IMAGE = CN()
         self.MODEL.IMAGE.NAME = 'vit'
-        self.MODEL.IMAGE.URL = 'google/vit-base-patch16-224'
-        
+        self.MODEL.IMAGE.SIZE = 224
+        self.MODEL.IMAGE.PATCH = 16
+        # self.MODEL.IMAGE.URL = f'google/vit-{self.MODEL.SCALE}-patch{self.MODEL.IMAGE.PATCH}-{self.MODEL.IMAGE.SIZE}'
+
         self.MODEL.TEXT = CN()
-        self.MODEL.TEXT.NAME = 'kobert'
-        self.MODEL.IMAGE.URL = 'beomi/kcbert-base'
+        self.MODEL.TEXT.NAME = 'kcbert'
+        # self.MODEL.IMAGE.URL = f'beomi/kcbert-{self.MODEL.SCALE}'
 
         # TRAIN ----------------------------------------------
         self.TRAIN = CN()
@@ -80,15 +82,18 @@ class Config(CN):
             self.TAG = args.tag
         if _check_args('seed'):
             self.SEED = args.seed
+
         if _check_args('batch_size'):
             self.DATA.BATCH_SIZE = args.batch_size
         if _check_args('data_path'):
             self.DATA.PATH = args.data_path
         if _check_args('data_name'):
             self.DATA.NAME = args.data_name
+        if _check_args('num_class'):
+            self.DATA.NUM_CLASS = args.num_class
+
         if _check_args('model_cfg'):
             self._update_config_from_file(args.model_config)
         if _check_args('train_cfg'):
             self._update_config_from_file(args.train_config)
-
         self.freeze()
