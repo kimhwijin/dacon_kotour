@@ -2,6 +2,7 @@ from config import Config
 import argparse
 import os
 from models.builder import build_model
+from optimizers.builder import build_optimizer
 
 def parse_option():
     parser = argparse.ArgumentParser("Parsing Method")
@@ -30,4 +31,11 @@ def parse_option():
 
 if __name__ == '__main__':
     args, config = parse_option()
-    # model = build_model(config)
+    print('-'*100)
+    print(config)
+    print('-'*100)
+    model = build_model(config)
+    print('-'*100)
+    for name, param in model.named_parameters():
+        print(name, param.shape)
+    print(build_optimizer(config, model))

@@ -16,7 +16,7 @@ class Config():
         config.MODEL    = ModelConfig.from_args(args)
         config.TRAIN    = TrainConfig.from_args(args)
         return config
-        
+
     @staticmethod
     def _get_base_config(args):
         config          = CN()
