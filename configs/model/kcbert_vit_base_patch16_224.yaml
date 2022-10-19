@@ -1,9 +1,8 @@
-MODEL:
-  SCALE: base
-  BERT:
-    NAME: kcbert
-    URL: beomi/kcbert-base
-  VIT:
-    IMAGE_SIZE: 224
-    PATCH_SIZE: 16
-    URL: google/vit-base-patch16-224
+SCALE: base
+TEXT:
+  NAME: kcbert
+  URL: beomi/kcbert-base
+IMAGE:
+  SIZE: 224
+  PATCH: 16
+  URL: google/vit-base-patch16-224

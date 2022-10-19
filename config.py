@@ -1,8 +1,5 @@
 import os
-from typing import Text
-import yaml
 from yacs.config import CfgNode as CN
-from functools import partial
 
 def _check_args(name, args):
     if hasattr(args, name) and eval(f'args.{name}'):
@@ -10,180 +7,162 @@ def _check_args(name, args):
     else:
         return False
 
-class Config(CN):
-    def __init__(self, args):
-        super().__init__()
-        self._check_args = partial(_check_args, args=args)
-        self._get_base_config(args)
-        self._get_data_config(args)
-        self._get_model_config(args)
-        self._get_train_config(args)
+class Config():
+    
+    @classmethod
+    def from_args(cls, args):
+        config          = cls._get_base_config(args)
+        config.DATA     = DataConfig.from_args(args)
+        config.MODEL    = ModelConfig.from_args(args)
+        config.TRAIN    = TrainConfig.from_args(args)
+        return config
         
-        self.update_config(args)
-    
-    def _get_base_config(self, args):
-        self.SEED = 0                                     if not self._check_args('seed') else args.seed
-        self.TAG = 'default'                              if not self._check_args('tag') else args.tag
-        self.OUTPUT = os.path.join('./results', self.TAG) if not self._check_args('output') else args.output
-
-    def _get_data_config(self, args):
-        self.DATA = CN()
-        self.DATA.BATCH_SIZE = 128      if not self._check_args('batch_size') else args.batch_size
-        self.DATA.PATH = './data'       if not self._check_args('data_path') else args.data_path
-        self.DATA.NAME = 'kotour'       if not self._check_args('data_name') else args.data_name
-        self.DATA.NUM_CLASS = 128       if not self._check_args('num_class') else args.num_class
-
-    def _get_model_config(self, args):
-        self.MODEL = ModelConfig(args)
-
-    def _get_train_config(self, args):
-        self.TRIAN = TrainConfig(args)
-
-    def _update_config_from_file(self, cfg_file):
-        self.merge_from_file(cfg_file)
-
-    def update_config(self, args):
-        self.defrost()
+    @staticmethod
+    def _get_base_config(args):
+        config          = CN()
+        config.SEED     = 0                                     if not _check_args('seed', args) else args.seed
+        config.TAG      = 'default'                             if not _check_args('tag', args) else args.tag
+        config.OUTPUT   = os.path.join('./results', config.TAG) if not _check_args('output', args) else args.output
+        return config
         
-        if _check_args('output_path'):
-            self.OUTPUT = args.output_path
-        if _check_args('tag'):
-            self.TAG = args.tag
-        if _check_args('seed'):
-            self.SEED = args.seed
-
-        if _check_args('batch_size'):
-            self.DATA.BATCH_SIZE = args.batch_size
-        if _check_args('data_path'):
-            self.DATA.PATH = args.data_path
-        if _check_args('data_name'):
-            self.DATA.NAME = args.data_name
-        if _check_args('num_class'):
-            self.DATA.NUM_CLASS = args.num_class
-
-        if _check_args('model_cfg'):
-            self._update_config_from_file(args.model_config)
-        if _check_args('train_cfg'):
-            self._update_config_from_file(args.train_config)
-        self.freeze()
 
 
-class ModelConfig(CN):
-    def __init__(self, args):
-        super().__init__()
-        self._get_base_config()
-        self._get_img_model_config(args)
-        self._get_txt_model_config(args)
-        self._get_config_from_file(args)
+class DataConfig():
+    @staticmethod
+    def from_args(args):
+        DATA = CN()
+        DATA.BATCH_SIZE  = 128           if not _check_args('batch_size', args) else args.batch_size
+        DATA.PATH        = './data'      if not _check_args('data_path', args) else args.data_path
+        DATA.NAME        = 'kotour'      if not _check_args('data_name', args) else args.data_name
+        DATA.NUM_CLASS   = 128           if not _check_args('num_class', args) else args.num_class
+        return DATA
 
-    def _get_base_config(self):
-        self.SCALE = 'base'
-        self.HIDDEN_DIM = 768
-    
-    def _get_img_model_config(self, args):
-        self.IMAGE = ImageModelConfig(args)
+class ModelConfig():
+    @classmethod
+    def from_args(cls, args):
+        MODEL               = cls._get_base_config()
+        MODEL.IMAGE         = ImageModelConfig.from_args(args)
+        MODEL.TEXT          = TextModelConfig.from_args(args)
+        if _check_args('model_cfg', args):
+            MODEL.merge_from_file(args.model_cfg)
+        return MODEL
 
-    def _get_txt_model_config(self, args):
-        self.TEXT = TextModelConfig(args)
-    
-    def _get_config_from_file(self, args):
-        self.merge_from_file(args.model_cfg)
+    @staticmethod
+    def _get_base_config():
+        MODEL               = CN()
+        MODEL.SCALE         = 'base'
+        MODEL.HIDDEN_DIM    = 768
+        return MODEL
 
-class ImageModelConfig(CN):
-    def __init__(self, args):
-        super().__init__()
-        self._get_config(args)
-
-    def _get_config(self, args):
+class ImageModelConfig():
+    @classmethod
+    def from_args(cls, args):
         if args.img_model == 'vit':
-            self._get_vit_config(args)
+            IMAGE = cls._get_vit_config()
+        else:
+            IMAGE = cls._get_vit_config()
+        return IMAGE
 
-    def _get_vit_config(self):
-        self.NAME = 'vit'
-        self.SIZE = 224
-        self.PATCH = 16
-        self.URL = 'google/vit-base-patch16-224'
+    @staticmethod
+    def _get_vit_config():
+        IMAGE = CN()
+        IMAGE.NAME = 'vit'
+        IMAGE.SIZE = 224
+        IMAGE.PATCH = 16
+        IMAGE.URL = 'google/vit-base-patch16-224'
+        return IMAGE
 
-
-class TextModelConfig(CN):
-    def __init__(self, args):
-        super().__init__()
-        self._get_config(args)
-
-    def _get_config(self, args):
+class TextModelConfig():
+    @classmethod
+    def from_args(cls, args):
         if args.txt_model == 'bert':
-            self._get_bert_config()
+            TEXT = cls._get_bert_config()
+        else:
+            TEXT = cls._get_bert_config()
+        return TEXT
 
-    def _get_bert_config(self):
-        self.URL = 'beomi/kcbert'
+    @staticmethod
+    def _get_bert_config():
+        TEXT = CN()
+        TEXT.NAME = 'kcbert'
+        TEXT.URL = 'beomi/kcbert'
+        return TEXT
 
+class TrainConfig():
+    @classmethod
+    def from_args(cls, args):
+        TRAIN               = cls._get_base_config()
+        TRAIN.OPTIMIZER      = OptimizerConfig.from_args(args)
+        TRAIN.LR_SCHEDULER  = LRSchedulerConfig.from_args(args)
+        if _check_args('train_cfg', args):
+            TRAIN.merge_from_file(args.train_cfg)
+        return TRAIN
 
-class TrainConfig(CN):
-    def __init__(self, args):
-        super().__init__()
-        self._get_base_config()
-        self._get_optim_config(args)
-        self._get_lr_scheduler_config(args)
-        self._get_config_from_file(args)
+    @staticmethod
+    def _get_base_config():
+        TRAIN = CN()
+        TRAIN.START_EPOCH    = 0
+        TRAIN.EPOCHS         = 300
+        TRAIN.START_EPOCH    = 0
+        TRAIN.EPOCHS         = 300
+        TRAIN.WARMUP_EPOCHS  = 20
+        TRAIN.WEIGHT_DECAY   = 0.05
+        TRAIN.BASE_LR        = 2e-5
+        TRAIN.WARMUP_LR      = 2e-7
+        TRAIN.MIN_LR         = 2e-6
+        TRAIN.CLIP_GRAD      = 5.0
+        return TRAIN
 
-    def _get_base_config(self):
-        self.START_EPOCH    = 0
-        self.EPOCHS         = 300
-        self.START_EPOCH    = 0
-        self.EPOCHS         = 300
-        self.WARMUP_EPOCHS  = 20
-        self.WEIGHT_DECAY   = 0.05
-        self.BASE_LR        = 2e-5
-        self.WARMUP_LR      = 2e-7
-        self.MIN_LR         = 2e-6
-        self.CLIP_GRAD      = 5.0
+class OptimizerConfig():
 
-    def _get_optim_config(self, args):
-        self.OPTIMIZER = OptimizerConfig(args)
-
-    def _get_lr_scheduler_config(self, args):
-        self.LR_SCHEDULER = LRSchedulerConfig(args)
-        
-    def _get_config_from_file(self, args):
-        self.merge_from_file(args.train_cfg)
-
-class OptimizerConfig(CN):
-    def __init__(self, args):
-        super().__init__()
+    @classmethod
+    def from_args(cls, args):
+        OPTIMIZER = CN()
         opt_lower = args.optim.lower()
         if opt_lower == 'sgd':
-            self._sgd_config()
+            OPTIMIZER = cls._sgd_config(OPTIMIZER)
         elif opt_lower == 'adamw':
-            self._adamw_config()
+            OPTIMIZER = cls._adamw_config(OPTIMIZER)
+        return OPTIMIZER
 
-    def _sgd_config(self):
-        self.MOMENTUM = 0.9
+    @staticmethod
+    def _sgd_config(OPTIMIZER):
+        OPTIMIZER.NAME = 'sgd'
+        OPTIMIZER.MOMENTUM = 0.9
+        return OPTIMIZER
 
-    def _adamw_config(self):
-        self.EPS = 1e-8
-        self.BETAS = (0.9, 0.999)
+    @staticmethod
+    def _adamw_config(OPTIMIZER):
+        OPTIMIZER.NAME = 'adamw'
+        OPTIMIZER.EPS = 0.9
+        OPTIMIZER.BETAS = (0.9, 0.999)
+        return OPTIMIZER
 
-class LRSchedulerConfig(CN):
-    def __init__(self, args):
-        super().__init__()
+class LRSchedulerConfig():
+
+    @classmethod
+    def from_args(cls, args):
         lr_lower = args.lr_scheduler.lower()
-        self._get_base_config()
+        LR_SCHEDULER = cls._get_base_config()
         if lr_lower == 'cosine':
-            self._get_cosine_config()
+            LR_SCHEDULER = cls._get_cosine_config(LR_SCHEDULER)
         elif lr_lower == 'linear':
-            self._get_linear_config()
-        elif lr_lower == 'step':
-            self._get_step_config()
+            LR_SCHEDULER = cls._get_linear_config(LR_SCHEDULER)
+        return LR_SCHEDULER
 
-    def _get_base_config(self):
-        self.DECAY_EPOCHS = 30
+    @staticmethod
+    def _get_base_config():
+        LR_SCHEDULER = CN()
+        LR_SCHEDULER.DECAY_EPOCHS = 30
+        return LR_SCHEDULER
 
-    def _get_cosine_config(self):
-        self.WARMUP_PREFIX = True
+    @staticmethod
+    def _get_cosine_config(LR_SCHEDULER):
+        LR_SCHEDULER.NAME = 'cosine'
+        LR_SCHEDULER.WARMUP_PREFIX = True
+        return LR_SCHEDULER
 
-    def _get_linear_config(self):
-        pass
-    
-    def _get_step_config(self):
-        self.DECAY_RATE = 0.1
-
+    @staticmethod
+    def _get_linear_config(LR_SCHEDULER):
+        LR_SCHEDULER.NAME = 'linear'
+        return LR_SCHEDULER
