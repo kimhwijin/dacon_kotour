@@ -1,0 +1,40 @@
+DATA:
+  BATCH_SIZE: 128
+  NAME: kotour
+  NUM_CLASS: 128
+  PATH: ./data
+  SPLIT: stratified_kfold
+  TRAIN_DATA: ./preprocessed
+MODEL:
+  HIDDEN_DIM: 768
+  IMAGE:
+    NAME: vit
+    PATCH: 16
+    SIZE: 224
+    URL: google/vit-base-patch16-224
+  SCALE: base
+  TEXT:
+    NAME: kcbert
+    URL: beomi/kcbert-base
+OUTPUT: ./results\default
+SEED: 0
+TAG: default
+TRAIN:
+  BASE_LR: 2.0e-05
+  CLIP_GRAD: 5.0
+  EPOCHS: 300
+  LR_SCHEDULER:
+    DECAY_EPOCHS: 30
+    NAME: cosine
+    WARMUP_PREFIX: true
+  MIN_LR: 2.0e-06
+  OPTIMIZER:
+    BETAS:
+    - 0.9
+    - 0.999
+    EPS: 1.0e-08
+    NAME: adamw
+  START_EPOCH: 0
+  WARMUP_EPOCHS: 20
+  WARMUP_LR: 2.0e-07
+  WEIGHT_DECAY: 0.05

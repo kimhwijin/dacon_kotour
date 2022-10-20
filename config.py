@@ -15,6 +15,7 @@ class Config():
         config.DATA     = DataConfig.from_args(args)
         config.MODEL    = ModelConfig.from_args(args)
         config.TRAIN    = TrainConfig.from_args(args)
+        config.freeze()
         return config
 
     @staticmethod
@@ -31,10 +32,12 @@ class DataConfig():
     @staticmethod
     def from_args(args):
         DATA = CN()
-        DATA.BATCH_SIZE  = 128           if not _check_args('batch_size', args) else args.batch_size
-        DATA.PATH        = './data'      if not _check_args('data_path', args) else args.data_path
-        DATA.NAME        = 'kotour'      if not _check_args('data_name', args) else args.data_name
-        DATA.NUM_CLASS   = 128           if not _check_args('num_class', args) else args.num_class
+        DATA.BATCH_SIZE  = 128                  if not _check_args('batch_size', args) else args.batch_size
+        DATA.PATH        = './data'             if not _check_args('data_path', args) else args.data_path
+        DATA.NAME        = 'kotour'             if not _check_args('data_name', args) else args.data_name
+        DATA.NUM_CLASS   = 128                  if not _check_args('num_class', args) else args.num_class
+        DATA.SPLIT       = 'stratified_kfold'   if not _check_args('data_split', args) else args.data_split
+        DATA.TRAIN_PATH  = './preprocessed'            if not _check_args('train_data_path', args) else args.train_data_path
         return DATA
 
 class ModelConfig():
