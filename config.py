@@ -37,7 +37,8 @@ class DataConfig():
         DATA.NAME        = 'kotour'             if not _check_args('data_name', args) else args.data_name
         DATA.NUM_CLASS   = 128                  if not _check_args('num_class', args) else args.num_class
         DATA.SPLIT       = 'stratified_kfold'   if not _check_args('data_split', args) else args.data_split
-        DATA.TRAIN_PATH  = './preprocessed'            if not _check_args('train_data_path', args) else args.train_data_path
+        DATA.TRAIN_PATH  = './preprocessed'     if not _check_args('train_data_path', args) else args.train_data_path
+        DATA.MAX_SEQ     = 300                  if not _check_args('max_seq', args) else args.max_seq
         return DATA
 
 class ModelConfig():
@@ -72,6 +73,7 @@ class ImageModelConfig():
         IMAGE.NAME = 'vit'
         IMAGE.SIZE = 224
         IMAGE.PATCH = 16
+        IMAGE.MAX_SEQ = 197
         IMAGE.URL = 'google/vit-base-patch16-224'
         return IMAGE
 

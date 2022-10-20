@@ -5,6 +5,7 @@ DATA:
   PATH: ./data
   SPLIT: stratified_kfold
   TRAIN_DATA: ./preprocessed
+  TOKENIZER: 'bert'
 MODEL:
   HIDDEN_DIM: 768
   IMAGE:

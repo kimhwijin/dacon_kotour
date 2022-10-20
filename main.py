@@ -20,6 +20,7 @@ def parse_option():
     parser.add_argument('--data_name', type=str)
     parser.add_argument('--num_class', type=int)
     parser.add_argument('--data_split', type=str)
+    parser.add_argument('--max_seq', type=int)
 
     # model
     parser.add_argument('--img_model', type=str, default='vit')
@@ -38,9 +39,7 @@ def parse_option():
 
 if __name__ == '__main__':
     args, config = parse_option()
-    train_df = build_loader(config)
-    print(train_df)
-        
+    train_ds, valid_ds, test_ds = build_loader(config)
     # print('-'*100)
     # print(config)
     # print('-'*100)
