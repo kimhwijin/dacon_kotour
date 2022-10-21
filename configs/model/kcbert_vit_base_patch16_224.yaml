@@ -1,4 +1,6 @@
 SCALE: base
+HIDDEN_DIM: 768
+MAX_SEQ: 300
 TEXT:
   NAME: kcbert
   URL: beomi/kcbert-base

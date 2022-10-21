@@ -20,10 +20,11 @@ class Config():
 
     @staticmethod
     def _get_base_config(args):
-        config          = CN()
-        config.SEED     = 0                                     if not _check_args('seed', args) else args.seed
-        config.TAG      = 'default'                             if not _check_args('tag', args) else args.tag
-        config.OUTPUT   = os.path.join('./results', config.TAG) if not _check_args('output', args) else args.output
+        config              = CN()
+        config.SEED         = 0                                     if not _check_args('seed', args) else args.seed
+        config.TAG          = 'default'                             if not _check_args('tag', args) else args.tag
+        config.OUTPUT       = os.path.join('./results', config.TAG) if not _check_args('output', args) else args.output
+        config.NUM_WORKERS  = 0                                     if not _check_args('num_workers', args) else args.num_workers
         return config
         
 
@@ -38,7 +39,6 @@ class DataConfig():
         DATA.NUM_CLASS   = 128                  if not _check_args('num_class', args) else args.num_class
         DATA.SPLIT       = 'stratified_kfold'   if not _check_args('data_split', args) else args.data_split
         DATA.TRAIN_PATH  = './preprocessed'     if not _check_args('train_data_path', args) else args.train_data_path
-        DATA.MAX_SEQ     = 300                  if not _check_args('max_seq', args) else args.max_seq
         return DATA
 
 class ModelConfig():
@@ -56,6 +56,7 @@ class ModelConfig():
         MODEL               = CN()
         MODEL.SCALE         = 'base'
         MODEL.HIDDEN_DIM    = 768
+        MODEL.MAX_SEQ       = 300
         return MODEL
 
 class ImageModelConfig():

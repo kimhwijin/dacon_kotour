@@ -4,15 +4,16 @@ DATA:
   NUM_CLASS: 128
   PATH: ./data
   SPLIT: stratified_kfold
-  TRAIN_DATA: ./preprocessed
-  TOKENIZER: 'bert'
+  TRAIN_PATH: ./preprocessed
 MODEL:
   HIDDEN_DIM: 768
   IMAGE:
+    MAX_SEQ: 197
     NAME: vit
     PATCH: 16
     SIZE: 224
     URL: google/vit-base-patch16-224
+  MAX_SEQ: 300
   SCALE: base
   TEXT:
     NAME: kcbert

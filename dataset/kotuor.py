@@ -10,7 +10,7 @@ import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 from skimage import io
 import torch
-
+import gc
 
 
 
@@ -19,31 +19,38 @@ class KotourDataset(Dataset):
         self.config = config
         self.df = df
         self.train = train
-        self.transform = A.Compose([
+        self.image_transform = A.Compose([
             A.Resize(config.MODEL.IMAGE.SIZE, config.MODEL.IMAGE.SIZE),
-            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, always_apply=False, p=1.0),
+            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, p=1.0),
             ToTensorV2(),
         ])
+        
     def __getitem__(self, i):
         row = self.df.iloc[i]
+
+        #Image ID
+        img_id = row['id']
 
         #Image
         image_path = row['img_path']
         image = io.imread(image_path)
-        transformed_image = self.image_transform(image=image)['image']
+        image = self.image_transform(image=image)['image']
 
         #Text
-        input_ids = torch.Tensor(row['input_ids'])
-        attn_mask = torch.Tensor([1 for _ in range(self.config.MODEL.IMAGE.MAX_SEQ)]+row['attn_mask'], dtype=torch.long)[:300]
+        input_ids = torch.tensor(row['input_ids'], dtype=torch.long)
+        attn_masks = [1] * self.config.MODEL.IMAGE.MAX_SEQ + row['attn_masks'][:self.config.MODEL.MAX_SEQ - self.config.MODEL.IMAGE.MAX_SEQ]
+        attn_masks = torch.tensor(attn_masks, dtype=torch.long)
 
         #Label
         if self.train:
             label = row['label']
+            return img_id, image, input_ids, attn_masks, label
         else:
-            label = None
+            return img_id, image, input_ids, attn_masks
 
-        return transformed_image, input_ids, attn_mask, label
 
+    def __len__(self):
+        return len(self.df)
 
 class Kotour():
     @classmethod
@@ -51,12 +58,13 @@ class Kotour():
         train_df, test_df           = cls._get_dataframe(config)
         train_df, test_df           = cls._preprocess_dataframe(config, train_df, test_df)
         train_df                    = cls._data_augmentation(config, train_df)
+        train_df, test_df           = cls._convert_text_to_ids(config, train_df, test_df)
+
         train_df, valid_df          = cls._split_dataframe(config, train_df)
-        train_df, valid_df, test_df = cls._convert_text_to_ids(config, train_df, valid_df, test_df)
-        train_ds = KotourDataset(config, train_df)
-        valid_ds = KotourDataset(config, valid_df)
-        test_ds = KotourDataset(config, test_df, False)
-        return train_ds, valid_ds, test_ds
+
+        train_ds, valid_ds, test_ds = KotourDataset(config, train_df), KotourDataset(config, valid_df), KotourDataset(config, test_df, False)
+        train_dl, valid_dl, test_dl = cls._make_dataloader(config, train_ds, valid_ds, test_ds)
+        return train_dl, valid_dl, test_dl
 
     @staticmethod
     def _get_dataframe(config):
@@ -73,40 +81,54 @@ class Kotour():
         train_df['label'] = le.transform(train_df['cat3'].values)
         return train_df, test_df
 
+    @classmethod
+    def _data_augmentation(cls, config, train_df):
+        if not os.path.exists(config.DATA.TRAIN_PATH + '/augged_train.csv'):
+            os.mkdir(config.DATA.TRAIN_PATH);os.mkdir(config.DATA.TRAIN_PATH+'/train')
+            train_df = cls._image_augmentation(config, train_df)
+        train_df = pd.read_csv(config.DATA.TRAIN_PATH + '/augged_train.csv')
+        return train_df
+    
+    @staticmethod
+    def _convert_text_to_ids(config, train_df, test_df):
+        if not (os.path.exists(f"{config.DATA.TRAIN_PATH}/train.csv") and os.path.exists(f"{config.DATA.TRAIN_PATH}/test.csv")):
+            tokenizer = get_tokenizer(config)
+            def _tokenize(df, label=True):
+                _toked = df['overview'].map(
+                    lambda txt: 
+                    tokenizer(txt, max_length=config.MODEL.MAX_SEQ, padding='max_length')
+                )
+                df['input_ids'] = _toked.map(lambda d: d['input_ids'][:config.MODEL.MAX_SEQ])
+                df['attn_masks'] = _toked.map(lambda d: d['attention_mask'][:config.MODEL.MAX_SEQ])
+                if label:
+                    df = df[['id', 'img_path', 'input_ids', 'attn_masks', 'label']]
+                else:
+                    df = df[['id', 'img_path', 'input_ids', 'attn_masks']]
+                return df
+            train_df = _tokenize(train_df)
+            test_df = _tokenize(test_df, False)
+            train_df.to_csv(f"{config.DATA.TRAIN_PATH}/train.csv", index=False)
+            test_df.to_csv(f"{config.DATA.TRAIN_PATH}/test.csv", index=False)
+
+        train_df = pd.read_csv(f"{config.DATA.TRAIN_PATH}/train.csv")
+        test_df = pd.read_csv(f"{config.DATA.TRAIN_PATH}/test.csv")
+        train_df['input_ids'] = train_df['input_ids'].apply(lambda x: list(map(int, x[1:-1].split(','))))
+        train_df['attn_masks'] = train_df['attn_masks'].apply(lambda x: list(map(int, x[1:-1].split(','))))
+        test_df['input_ids'] = test_df['input_ids'].apply(lambda x: list(map(int, x[1:-1].split(','))))
+        test_df['attn_masks'] = test_df['attn_masks'].apply(lambda x: list(map(int, x[1:-1].split(','))))
+        return train_df, test_df
+
     @staticmethod
     def _split_dataframe(config, train_df):
         train_index, valid_index = _stratified_kfold(config, range(len(train_df['id'])), train_df['label'].values)
         return train_df.iloc[train_index], train_df.iloc[valid_index]
-    
-    @classmethod
-    def _data_augmentation(cls, config, train_df):
-        if not os.path.exists(config.DATA.TRAIN_PATH + '/train.csv'):
-            os.mkdir(config.DATA.TRAIN_PATH);os.mkdir(config.DATA.TRAIN_PATH+'/train')
-            train_df = cls._image_augmentation(config, train_df)
-        train_df = pd.read_csv(config.DATA.TRAIN_PATH + '/train.csv')
-        return train_df
 
     @staticmethod
-    def _convert_text_to_ids(config, train_df, valid_df, test_df):
-        tokenizer = get_tokenizer(config)
-        def _tokenize(df, label=True):
-            _toked = df['overview'].map(
-                lambda txt: 
-                tokenizer(txt, max_length=config.DATA.MAX_SEQ - config.MODEL.IMAGE.MAX_SEQ, padding='max_length')
-            )
-            df['input_ids'] = _toked.map(lambda d: d['input_ids'])
-            df['attn_masks'] = _toked.map(lambda d: d['attention_mask'])
-            if label:
-                df = df[['id', 'img_path', 'input_ids', 'attn_masks', 'label']]
-            else:
-                df = df[['id', 'img_path', 'input_ids', 'attn_masks']]
-            return df
-        train_df = _tokenize(train_df)
-        valid_df = _tokenize(valid_df)
-        test_df = _tokenize(test_df, False)
-        return train_df, valid_df, test_df
-
-
+    def _make_dataloader(config, train_ds, valid_ds, test_ds):
+        train_dl = DataLoader(train_ds, shuffle=True, batch_size=config.DATA.BATCH_SIZE, num_workers=config.NUM_WORKERS)
+        valid_dl = DataLoader(valid_ds, shuffle=True, batch_size=config.DATA.BATCH_SIZE, num_workers=config.NUM_WORKERS)
+        test_dl  = DataLoader(test_ds, batch_size=config.DATA.BATCH_SIZE, num_workers=config.NUM_WORKERS)
+        return train_dl, valid_dl, test_dl
 
     @staticmethod
     def _image_augmentation(config, train_df):
@@ -186,5 +208,5 @@ class Kotour():
             flip_augs[1:],
             color_augs[:2]
         )
-        train_df.to_csv("{}/train.csv".format(path, 'train.csv'), index=False)
+        train_df.to_csv("{}/augged_train.csv".format(path), index=False)
         return train_df
