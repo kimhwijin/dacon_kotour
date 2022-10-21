@@ -1,0 +1,10 @@
+SCALE: base
+HIDDEN_DIM: 768
+MAX_SEQ: 300
+TEXT:
+  NAME: kcbert
+  URL: beomi/kcbert-base
+IMAGE:
+  SIZE: 224
+  PATCH: 16
+  URL: google/vit-base-patch16-224
