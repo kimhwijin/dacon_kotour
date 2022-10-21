@@ -1,10 +1,10 @@
-import gc
 from config import Config
 import argparse
-import os
+from lr_scheduler.builder import build_scheduler
 from models import build_model
 from optimizers import build_optimizer
 from dataset import build_loader
+from train import run_training
 
 def parse_option():
     parser = argparse.ArgumentParser("Parsing Method")
@@ -39,6 +39,18 @@ def parse_option():
 
 
 if __name__ == '__main__':
+    print('args parse')
     args, config = parse_option()
+    with open('./configs/default.yaml', 'w') as f:
+        f.write(config.dump())
+    print('build loader')
+    train_dl, valid_dl, test_dl = build_loader(config)    
+    print('build model')
+    model = build_model(config)
+    print('build optimizer')
+    optimizer = build_optimizer(config, model)
+    print('build scheduler')
+    scheduler = build_scheduler(config, optimizer, len(train_dl))
+    print('running')
+    run_training(config, model, train_dl, valid_dl, optimizer, scheduler)
     
-    train_dl, valid_dl, test_dl = build_loader(config)

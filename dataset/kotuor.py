@@ -59,9 +59,7 @@ class Kotour():
         train_df, test_df           = cls._preprocess_dataframe(config, train_df, test_df)
         train_df                    = cls._data_augmentation(config, train_df)
         train_df, test_df           = cls._convert_text_to_ids(config, train_df, test_df)
-
         train_df, valid_df          = cls._split_dataframe(config, train_df)
-
         train_ds, valid_ds, test_ds = KotourDataset(config, train_df), KotourDataset(config, valid_df), KotourDataset(config, test_df, False)
         train_dl, valid_dl, test_dl = cls._make_dataloader(config, train_ds, valid_ds, test_ds)
         return train_dl, valid_dl, test_dl
@@ -96,10 +94,10 @@ class Kotour():
             def _tokenize(df, label=True):
                 _toked = df['overview'].map(
                     lambda txt: 
-                    tokenizer(txt, max_length=config.MODEL.MAX_SEQ, padding='max_length')
+                    tokenizer(txt, max_length=config.MODEL.MAX_SEQ-config.MODEL.IMAGE.MAX_SEQ, padding='max_length')
                 )
-                df['input_ids'] = _toked.map(lambda d: d['input_ids'][:config.MODEL.MAX_SEQ])
-                df['attn_masks'] = _toked.map(lambda d: d['attention_mask'][:config.MODEL.MAX_SEQ])
+                df['input_ids'] = _toked.map(lambda d: d['input_ids'][:config.MODEL.MAX_SEQ-config.MODEL.IMAGE.MAX_SEQ])
+                df['attn_masks'] = _toked.map(lambda d: d['attention_mask'][:config.MODEL.MAX_SEQ-config.MODEL.IMAGE.MAX_SEQ])
                 if label:
                     df = df[['id', 'img_path', 'input_ids', 'attn_masks', 'label']]
                 else:

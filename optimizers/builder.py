@@ -5,7 +5,7 @@ def build_optimizer(config, model):
         return _build_adamw(config, model)
 
 def _build_adamw(config, model:nn.Module):
-    parameters = set_weight_decay(model)
+    parameters = _set_weight_decay(model)
     return optim.AdamW(
         parameters,
         eps=config.TRAIN.OPTIMIZER.EPS,
@@ -14,7 +14,8 @@ def _build_adamw(config, model:nn.Module):
         weight_decay=config.TRAIN.WEIGHT_DECAY
     )
 
-def set_weight_decay(model):
+
+def _set_weight_decay(model):
     skip_list = {}
     skip_keywords = {}
     if hasattr(model, 'no_weight_decay'):

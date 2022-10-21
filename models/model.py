@@ -30,14 +30,14 @@ class Model(nn.Module):
             self.transform,
             self.decoder
         )
-
     def forward(self, images, token_ids, attn_masks):
         img_embed = self.img_embedding(images)
         txt_embed = self.txt_embedding(token_ids)
 
         x = torch.cat((img_embed, txt_embed), axis=1)
         attn_masks = self.get_attn_mask(attn_masks, attn_masks.shape, attn_masks.device)
-        x = self.encoder(x, attn_masks)
+        x = self.encoder(x, attn_masks)[0]
+        x = self.pooler(x)
         x = self.head(x)
         return x
 
