@@ -1,6 +1,6 @@
 from torch import nn
 import torch
-from transformers import BertModel, BertTokenizer, ViTModel
+from transformers import BertModel, ViTModel
 
 class Model(nn.Module):
     def __init__(self, config):

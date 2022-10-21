@@ -1,6 +1,6 @@
 from config import Config
 import argparse
-from lr_scheduler.builder import build_scheduler
+from lr_scheduler import build_scheduler
 from models import build_model
 from optimizers import build_optimizer
 from dataset import build_loader
