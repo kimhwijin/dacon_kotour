@@ -19,8 +19,9 @@ def run_training(config, model, train_dataloader, valid_dataloader, optimizer, l
 
     
     start = time.time()
-    best_dice      = -np.inf
-    best_epoch     = -1
+    best_acc        = -np.inf
+    best_f1         = -np.inf
+    best_epoch      = -1
     history = defaultdict(list)
     num_epochs = config.TRAIN.EPOCHS
     for epoch in range(1, num_epochs + 1): 
@@ -39,7 +40,20 @@ def run_training(config, model, train_dataloader, valid_dataloader, optimizer, l
         
         # Log the metrics
         print(f'Valid Accuraacy: {val_acc:0.2f} | Valid F1 Score: {val_f1:0.3f}\n')
-    
+        if best_acc < val_acc:
+            save_state = {
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'lr_scheduler': lr_scheduler.state_dict(),
+                'best_acc': best_acc,
+                'epoch': epoch,
+                'config': config
+            }
+            save_path = f'{config.OUTPUT}ckpt_epoch_{epoch}.pth'
+            print(f"{save_path} saving.......")
+            torch.save(save_state, save_path)
+            print(f"{save_path} saved!")
+
     end = time.time()
     time_elapsed = end - start
     print('Training complete in {:.0f}h {:.0f}m {:.0f}s'.format(
@@ -70,7 +84,8 @@ def train_step(config, epoch, model, dataloader, optimizer, lr_scheduler, criter
         labels = labels.to(device)
 
         optimizer.zero_grad()
-        lr_scheduler.step_update((epoch*num_steps + step))
+        if lr_scheduler is not None:
+            lr_scheduler.step_update((epoch*num_steps + step))
 
         logits = model(imgs, input_ids, attn_masks)
         loss = criterion(logits, labels)
@@ -92,11 +107,11 @@ def train_step(config, epoch, model, dataloader, optimizer, lr_scheduler, criter
 
         mem = torch.cuda.memory_reserved() / 1e9 if torch.cuda.is_available() else 0
         pbar.set_postfix(
-                         F1_score=f"{f1_score:0.3f}",
-                         Accuracy=f"{acc_score:0.2f}",
-                         gpu_mem=f"{mem:0.2f} GB",
-                         train_loss=f"{epoch_loss:0.4f}"
-                        )
+            F1_score=f"{f1_score:0.3f}",
+            Accuracy=f"{acc_score:0.2f}",
+            gpu_mem=f"{mem:0.2f} GB",
+            train_loss=f"{epoch_loss:0.4f}"
+        )
         
     torch.cuda.empty_cache()
     gc.collect()
@@ -127,8 +142,8 @@ def valid_step(config, model, dataloader, criterion, metrics_fn, device):
         logits = model(imgs, input_ids, attn_masks)
         loss = criterion(logits, labels)
 
-        running_loss += (loss.item() * config.BATCH_SIZE)
-        dataset_size += config.BATCH_SIZE
+        running_loss += (loss.item() * config.DATA.BATCH_SIZE)
+        dataset_size += config.DATA.BATCH_SIZE
         epoch_loss = running_loss / dataset_size
 
         metric_scores = metrics_fn(logits.softmax(-1), labels)

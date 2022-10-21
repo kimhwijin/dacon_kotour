@@ -1,5 +1,5 @@
 DATA:
-  BATCH_SIZE: 4
+  BATCH_SIZE: 6
   NAME: kotour
   NUM_CLASS: 128
   PATH: ./data
@@ -20,7 +20,7 @@ MODEL:
     NAME: kcbert
     URL: beomi/kcbert-base
 NUM_WORKERS: 0
-OUTPUT: ./results\default
+OUTPUT: ./results/default
 SEED: 0
 TAG: default
 TRAIN:

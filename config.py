@@ -24,7 +24,7 @@ class Config():
         config              = CN()
         config.SEED         = 0                                     if not _check_args('seed', args) else args.seed
         config.TAG          = 'default'                             if not _check_args('tag', args) else args.tag
-        config.OUTPUT       = os.path.join('./results', config.TAG) if not _check_args('output', args) else args.output
+        config.OUTPUT       = './results/'+config.TAG               if not _check_args('output', args) else args.output
         config.NUM_WORKERS  = 0                                     if not _check_args('num_workers', args) else args.num_workers
         config.DEVICE        = "cuda:0" if torch.cuda.is_available else 'cpu'
         return config
@@ -35,7 +35,7 @@ class DataConfig():
     @staticmethod
     def from_args(args):
         DATA = CN()
-        DATA.BATCH_SIZE  = 128                  if not _check_args('batch_size', args) else args.batch_size
+        DATA.BATCH_SIZE  = 6                    if not _check_args('batch_size', args) else args.batch_size
         DATA.PATH        = './data'             if not _check_args('data_path', args) else args.data_path
         DATA.NAME        = 'kotour'             if not _check_args('data_name', args) else args.data_name
         DATA.NUM_CLASS   = 128                  if not _check_args('num_class', args) else args.num_class
