@@ -10,8 +10,6 @@ import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 from skimage import io
 import torch
-import gc
-
 
 
 class KotourDataset(Dataset):
@@ -56,13 +54,13 @@ class Kotour():
     @classmethod
     def from_config(cls, config):
         train_df, test_df           = cls._get_dataframe(config)
-        train_df, test_df           = cls._preprocess_dataframe(config, train_df, test_df)
+        train_df, test_df, le           = cls._preprocess_dataframe(config, train_df, test_df)
         train_df                    = cls._data_augmentation(config, train_df)
         train_df, test_df           = cls._convert_text_to_ids(config, train_df, test_df)
         train_df, valid_df          = cls._split_dataframe(config, train_df)
         train_ds, valid_ds, test_ds = KotourDataset(config, train_df), KotourDataset(config, valid_df), KotourDataset(config, test_df, False)
         train_dl, valid_dl, test_dl = cls._make_dataloader(config, train_ds, valid_ds, test_ds)
-        return train_dl, valid_dl, test_dl
+        return train_dl, valid_dl, test_dl, le
 
     @staticmethod
     def _get_dataframe(config):
@@ -77,7 +75,7 @@ class Kotour():
         le = LabelEncoder()
         le.fit(train_df['cat3'].values)
         train_df['label'] = le.transform(train_df['cat3'].values)
-        return train_df, test_df
+        return train_df, test_df, le
 
     @classmethod
     def _data_augmentation(cls, config, train_df):

@@ -3,9 +3,10 @@ import torch
 from transformers import BertModel, ViTModel
 
 class Model(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, output_attentions=False):
         super().__init__()
-        
+        self.out_attns = output_attentions
+
         img_model = ViTModel.from_pretrained(config.MODEL.IMAGE.URL)
         txt_model = BertModel.from_pretrained(config.MODEL.TEXT.URL)
 
@@ -30,15 +31,18 @@ class Model(nn.Module):
             self.transform,
             self.decoder
         )
+        
     def forward(self, images, token_ids, attn_masks):
         img_embed = self.img_embedding(images)
         txt_embed = self.txt_embedding(token_ids)
 
         x = torch.cat((img_embed, txt_embed), axis=1)
         attn_masks = self.get_attn_mask(attn_masks, attn_masks.shape, attn_masks.device)
-        x = self.encoder(x, attn_masks)[0]
+        output = self.encoder(x, attn_masks, output_attentions=self.out_attns)
+        x, attn_maps = output.last_hidden_state, output.attentions if self.out_attns else None
+
         x = self.pooler(x)
         x = self.head(x)
-        return x
+        return x, attn_maps
 
 

@@ -7,11 +7,12 @@ from collections import defaultdict
 import torch
 from torch import nn
 from torchmetrics import MetricCollection, Accuracy, F1Score
+import os
 
 def run_training(config, model, train_dataloader, valid_dataloader, optimizer, lr_scheduler):
     if torch.cuda.is_available():
         print("cuda: {}\n".format(torch.cuda.get_device_name()))
-    
+
     device = torch.device(config.DEVICE)
     criterion = nn.CrossEntropyLoss()
     metrics_fn = MetricCollection([Accuracy(num_classes=config.DATA.NUM_CLASS).to(device), F1Score(num_classes=config.DATA.NUM_CLASS).to(device)])
@@ -41,6 +42,7 @@ def run_training(config, model, train_dataloader, valid_dataloader, optimizer, l
         # Log the metrics
         print(f'Valid Accuraacy: {val_acc:0.2f} | Valid F1 Score: {val_f1:0.3f}\n')
         if best_acc < val_acc:
+            best_acc = val_acc
             save_state = {
                 'model': model.state_dict(),
                 'optimizer': optimizer.state_dict(),
@@ -49,7 +51,7 @@ def run_training(config, model, train_dataloader, valid_dataloader, optimizer, l
                 'epoch': epoch,
                 'config': config
             }
-            save_path = f'{config.OUTPUT}ckpt_epoch_{epoch}.pth'
+            save_path = f'{config.OUTPUT}/ckpt_epoch_{epoch}.pth'
             print(f"{save_path} saving.......")
             torch.save(save_state, save_path)
             print(f"{save_path} saved!")
@@ -86,8 +88,8 @@ def train_step(config, epoch, model, dataloader, optimizer, lr_scheduler, criter
         optimizer.zero_grad()
         if lr_scheduler is not None:
             lr_scheduler.step_update((epoch*num_steps + step))
-
-        logits = model(imgs, input_ids, attn_masks)
+        #logits, attn_map
+        logits, _ = model(imgs, input_ids, attn_masks)
         loss = criterion(logits, labels)
         loss.backward()
 
@@ -139,7 +141,7 @@ def valid_step(config, model, dataloader, criterion, metrics_fn, device):
         attn_masks = attn_masks.to(device)
         labels = labels.to(device)
 
-        logits = model(imgs, input_ids, attn_masks)
+        logits, _ = model(imgs, input_ids, attn_masks)
         loss = criterion(logits, labels)
 
         running_loss += (loss.item() * config.DATA.BATCH_SIZE)
@@ -167,3 +169,27 @@ def valid_step(config, model, dataloader, criterion, metrics_fn, device):
     gc.collect()
 
     return epoch_loss, metrics
+
+def predict_with_test(config, model, dataloader, le):
+    
+    import pandas as pd
+
+    device = torch.device(config.DEVICE)
+    submit_df = pd.read_csv(f'{config.DATA.PATH}/sample_submission.csv')
+
+    with torch.no_grad():
+        for data in tqdm(dataloader):
+            img_ids, imgs, input_ids, attn_masks = data
+            
+            imgs = imgs.to(device)
+            input_ids = input_ids.to(device)
+            attn_masks = attn_masks.to(device)
+
+            logits, _ = model(imgs, input_ids, attn_masks)
+            logits = logits.softmax(dim=-1).detach().cpu().numpy()
+
+            preds = np.argmax(logits, axis=-1)
+            labels = le.inverse_transform(preds)
+            for img_id, label in zip(img_ids, labels):
+                submit_df.loc[submit_df['id'] == img_id, 'cat3'] = label
+    submit_df.to_csv(f'{config.DATA.PATH}/sample_submission.csv')

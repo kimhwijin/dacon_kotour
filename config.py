@@ -43,6 +43,7 @@ class DataConfig():
         return DATA
 
 class ModelConfig():
+    
     @classmethod
     def from_args(cls, args):
         MODEL               = cls._get_base_config()

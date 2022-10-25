@@ -5,3 +5,5 @@ test.ipynb
 .DS_Store
 data/
 preprocessed/
+results/
+prepross.py
