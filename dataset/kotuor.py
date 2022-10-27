@@ -37,6 +37,8 @@ class KotourDataset(Dataset):
         #Text
         input_ids = torch.tensor(row['input_ids'], dtype=torch.long)
         attn_masks = [1] * self.config.MODEL.IMAGE.MAX_SEQ + row['attn_masks'][:self.config.MODEL.MAX_SEQ - self.config.MODEL.IMAGE.MAX_SEQ]
+        # if self.train: 
+        #     attn_masks[row['black_out']] = 0
         attn_masks = torch.tensor(attn_masks, dtype=torch.long)
 
         #Label
@@ -105,7 +107,7 @@ class Kotour():
             test_df = _tokenize(test_df, False)
             train_df.to_csv(f"{config.DATA.TRAIN_PATH}/train.csv", index=False)
             test_df.to_csv(f"{config.DATA.TRAIN_PATH}/test.csv", index=False)
-
+            
         train_df = pd.read_csv(f"{config.DATA.TRAIN_PATH}/train.csv")
         test_df = pd.read_csv(f"{config.DATA.TRAIN_PATH}/test.csv")
         train_df['input_ids'] = train_df['input_ids'].apply(lambda x: list(map(int, x[1:-1].split(','))))
@@ -130,7 +132,7 @@ class Kotour():
     def _image_augmentation(config, train_df):
         path = config.DATA.TRAIN_PATH
 
-        from collections import Counter, OrderedDict
+        from collections import Counter
         c = Counter(train_df['label'])
         train_df['label_count'] = train_df['label'].map(lambda l: c[l])
         

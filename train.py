@@ -8,6 +8,7 @@ import torch
 from torch import nn
 from torchmetrics import MetricCollection, Accuracy, F1Score
 import os
+from focal_loss.focal_loss import FocalLoss
 
 def run_training(config, model, train_dataloader, valid_dataloader, optimizer, lr_scheduler):
     if torch.cuda.is_available():
@@ -192,4 +193,5 @@ def predict_with_test(config, model, dataloader, le):
             labels = le.inverse_transform(preds)
             for img_id, label in zip(img_ids, labels):
                 submit_df.loc[submit_df['id'] == img_id, 'cat3'] = label
-    submit_df.to_csv(f'{config.DATA.PATH}/sample_submission.csv')
+
+    submit_df.to_csv(f'{config.DATA.PATH}/sample_submission.csv', index=False)

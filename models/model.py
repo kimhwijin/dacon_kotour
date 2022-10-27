@@ -1,21 +1,16 @@
 from torch import nn
 import torch
 from transformers import BertModel, ViTModel
-
+from .text import TextModel
+from .img import ImgModel
 class Model(nn.Module):
     def __init__(self, config, output_attentions=False):
         super().__init__()
+
         self.out_attns = output_attentions
-
-        img_model = ViTModel.from_pretrained(config.MODEL.IMAGE.URL)
-        txt_model = BertModel.from_pretrained(config.MODEL.TEXT.URL)
-
-        self.img_embedding = img_model.embeddings
-        self.txt_embedding = txt_model.embeddings
-        self.get_attn_mask = txt_model.get_extended_attention_mask
-
-        self.encoder = txt_model.encoder
-        self.pooler = txt_model.pooler
+        
+        self.img_embedding = ImgModel.get_embeddings(config)
+        self.txt_embedding, self.encoder, self.get_attn_mask = TextModel.get_embedding_and_encoder(config)
 
         self.transform = nn.Sequential(
             nn.Linear(config.MODEL.HIDDEN_DIM, config.MODEL.HIDDEN_DIM),
@@ -40,8 +35,7 @@ class Model(nn.Module):
         attn_masks = self.get_attn_mask(attn_masks, attn_masks.shape, attn_masks.device)
         output = self.encoder(x, attn_masks, output_attentions=self.out_attns)
         x, attn_maps = output.last_hidden_state, output.attentions if self.out_attns else None
-
-        x = self.pooler(x)
+        x = x[:, 0]
         x = self.head(x)
         return x, attn_maps
 

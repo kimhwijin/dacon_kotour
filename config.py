@@ -58,7 +58,7 @@ class ModelConfig():
         MODEL               = CN()
         MODEL.SCALE         = 'base'
         MODEL.HIDDEN_DIM    = 768
-        MODEL.MAX_SEQ       = 300
+        MODEL.MAX_SEQ       = 512
         return MODEL
 
 class ImageModelConfig():
@@ -85,6 +85,8 @@ class TextModelConfig():
     def from_args(cls, args):
         if args.txt_model == 'bert':
             TEXT = cls._get_bert_config()
+        elif args.txt_model == 'eletra':
+            TEXT = cls._get_electra_config()
         else:
             TEXT = cls._get_bert_config()
         return TEXT
@@ -95,6 +97,12 @@ class TextModelConfig():
         TEXT.NAME = 'kcbert'
         TEXT.URL = 'beomi/kcbert'
         return TEXT
+
+    @staticmethod
+    def _get_electra_config():
+        TEXT = CN()
+        TEXT.NAME = 'koelectra'
+        TEXT.URL = "monologg/koelectra-base-v3-discriminator"
 
 class TrainConfig():
     @classmethod
@@ -109,8 +117,6 @@ class TrainConfig():
     @staticmethod
     def _get_base_config():
         TRAIN = CN()
-        TRAIN.START_EPOCH    = 0
-        TRAIN.EPOCHS         = 300
         TRAIN.START_EPOCH    = 0
         TRAIN.EPOCHS         = 300
         TRAIN.WARMUP_EPOCHS  = 20

@@ -28,8 +28,8 @@ def parse_option():
 
     # model
     parser.add_argument('--img_model', type=str, default='vit')
-    parser.add_argument('--txt_model', type=str, default='bert')
-    parser.add_argument('--model_cfg', type=str, default='./configs/model/kcbert_vit_base_patch16_224.yaml')
+    parser.add_argument('--txt_model', type=str, default='koelectra')
+    parser.add_argument('--model_cfg', type=str, default='./configs/model/koelectra_vit_base_patch16_224.yaml')
     
     # train
     parser.add_argument('--train_cfg', type=str, default='./configs/training.yaml')

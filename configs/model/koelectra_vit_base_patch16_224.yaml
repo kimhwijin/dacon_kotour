@@ -1,0 +1,11 @@
+SCALE: base
+HIDDEN_DIM: 768
+MAX_SEQ: 512
+TEXT:
+  NAME: koelectra
+  URL: monologg/koelectra-base-v3-discriminator
+IMAGE:
+  MAX_SEQ: 197
+  SIZE: 224
+  PATCH: 16
+  URL: google/vit-base-patch16-224
