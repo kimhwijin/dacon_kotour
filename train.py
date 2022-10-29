@@ -47,7 +47,7 @@ def run_training(config, model, train_dataloader, valid_dataloader, optimizer, l
             save_state = {
                 'model': model.state_dict(),
                 'optimizer': optimizer.state_dict(),
-                'lr_scheduler': lr_scheduler.state_dict(),
+                'scheduler': lr_scheduler.state_dict(),
                 'best_acc': best_acc,
                 'epoch': epoch,
                 'config': config
@@ -87,8 +87,11 @@ def train_step(config, epoch, model, dataloader, optimizer, lr_scheduler, criter
         labels = labels.to(device)
 
         optimizer.zero_grad()
-        if lr_scheduler is not None:
-            lr_scheduler.step_update((epoch*num_steps + step))
+        
+        # if lr_scheduler is not None:
+        #     lr_scheduler.step_update((epoch*num_steps + step))
+
+
         #logits, attn_map
         logits, _ = model(imgs, input_ids, attn_masks)
         loss = criterion(logits, labels)

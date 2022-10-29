@@ -1,9 +1,9 @@
 SCALE: base
 HIDDEN_DIM: 768
-MAX_SEQ: 300
+MAX_SEQ: 512
 TEXT:
-  NAME: kcbert
-  URL: beomi/kcbert-base
+  NAME: kobert
+  URL: monologg/kobert
 IMAGE:
   MAX_SEQ: 197
   SIZE: 224

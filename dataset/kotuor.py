@@ -1,3 +1,4 @@
+from numpy import bool_
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
@@ -10,7 +11,7 @@ import albumentations as A
 from albumentations.pytorch.transforms import ToTensorV2
 from skimage import io
 import torch
-
+from tqdm import tqdm
 
 class KotourDataset(Dataset):
     def __init__(self, config, df, train=True):
@@ -19,6 +20,8 @@ class KotourDataset(Dataset):
         self.train = train
         self.image_transform = A.Compose([
             A.Resize(config.MODEL.IMAGE.SIZE, config.MODEL.IMAGE.SIZE),
+            A.ShiftScaleRotate(p=0.5),
+            A.RandomCrop(config.MODEL.IMAGE.SIZE, config.MODEL.IMAGE.SIZE, p=0.5),
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, p=1.0),
             ToTensorV2(),
         ])
@@ -59,6 +62,7 @@ class Kotour():
         train_df, test_df, le           = cls._preprocess_dataframe(config, train_df, test_df)
         train_df                    = cls._data_augmentation(config, train_df)
         train_df, test_df           = cls._convert_text_to_ids(config, train_df, test_df)
+        # train_df                    = cls._get_attention_score(config, train_df)
         train_df, valid_df          = cls._split_dataframe(config, train_df)
         train_ds, valid_ds, test_ds = KotourDataset(config, train_df), KotourDataset(config, valid_df), KotourDataset(config, test_df, False)
         train_dl, valid_dl, test_dl = cls._make_dataloader(config, train_ds, valid_ds, test_ds)
@@ -117,6 +121,10 @@ class Kotour():
         return train_df, test_df
 
     @staticmethod
+    def _get_attention_score(config, train_df):
+        return 
+
+    @staticmethod
     def _split_dataframe(config, train_df):
         train_index, valid_index = _stratified_kfold(config, range(len(train_df['id'])), train_df['label'].values)
         return train_df.iloc[train_index], train_df.iloc[valid_index]
@@ -154,24 +162,27 @@ class Kotour():
         _8times_label = 20
         _4times_label = 60
         _2times_label = 130
-
         def _ntimes(train_df, bool_index, t_augs, f_augs, c_augs):
             aug_df = train_df[bool_index].copy()
-            for t_name, t_aug in t_augs:
-                for f_name, f_aug in f_augs:
-                    for c_name, c_aug in c_augs:
-                        aug_name = "{}{}{}".format(t_name, f_name, c_name)
-                        _temp_aug_df = aug_df.copy()
 
-                        for img_id, img_path in zip(_temp_aug_df['id'].values, _temp_aug_df['img_path'].values):
-                            img = Image.open(img_path)
-                            img = t_aug(f_aug(c_aug(img)))
-                            img.save("{}/train/{}.jpg".format(path, img_id+aug_name))
-                        
-                        _temp_aug_df['id'] = _temp_aug_df['id'].map(lambda i: i+aug_name)
-                        _temp_aug_df['img_path'] = _temp_aug_df['id'].map(lambda i: "{}/train/{}.jpg".format(path, i))
-                        train_df = pd.concat([train_df, _temp_aug_df])
+            for i in tqdm(range(len(aug_df)), "Augmenting..."):
+                row = aug_df.iloc[i]
+                img = Image.open(row['img_path'])
+                #
+                for t_name, t_aug in t_augs:
+                    for f_name, f_aug in f_augs:
+                        for c_name, c_aug in c_augs:
+                            aug_name = f"{t_name}{f_name}{c_name}"
+                            augged_row = row.copy()
 
+                            augged_row['id'] = augged_row['id']+aug_name
+                            augged_row['img_path'] = f"{path}/train/{augged_row['id']}.jpg"
+
+                            aug_img = t_aug(f_aug(c_aug(img)))
+                            aug_img.save(f"{path}/train/{augged_row['id']}.jpg")
+                            #append
+                            aug_df.loc[len(aug_df)] = augged_row
+            train_df = pd.concat([train_df, aug_df], ignore_index=True)
             return train_df
 
         # 12 times

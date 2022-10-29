@@ -57,11 +57,19 @@ if __name__ == '__main__':
     with open(f'{config.OUTPUT}/config.yaml', 'w') as f:
         f.write(config.dump())
 
+    sd = torch.load('./results/koelectra/ckpt_epoch_7.pth')
     set_seed(config.SEED)
+
     print('build loader');train_dl, valid_dl, test_dl, label_encoder = build_loader(config)    
     print('build model');model = build_model(config)
     print('build optimizer');optimizer = build_optimizer(config, model)
     print('build scheduler');scheduler = build_scheduler(config, optimizer, len(train_dl))
+
+    model.load_state_dict(sd['model'])
+    model.to(torch.device('cuda:0'))
+    optimizer.load_state_dict(sd['optimizer'])
+    scheduler.load_state_dict(sd['scheduler'])
+
     print('running');run_training(config, model, train_dl, valid_dl, optimizer, scheduler)
     print('predicting');predict_with_test(config, model, test_dl, label_encoder)
     print('finish!')
