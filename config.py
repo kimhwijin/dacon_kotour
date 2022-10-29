@@ -25,7 +25,9 @@ class Config():
         config.TAG          = 'default'                             if not _check_args('tag', args) else args.tag
         config.OUTPUT       = './results/'+config.TAG               if not _check_args('output', args) else args.output
         config.NUM_WORKERS  = 0                                     if not _check_args('num_workers', args) else args.num_workers
-        config.DEVICE        = "cuda:0" if torch.cuda.is_available else 'cpu'
+        config.DEVICE       = "cuda:0" if torch.cuda.is_available else 'cpu'
+        config.BEST         = './results/best.pth'                  if not _check_args('best_model', args) else args.best_model
+        config.BLACK_OUT    = False                                 if not _check_args('black_out', args) else args.black_out
         return config
         
 

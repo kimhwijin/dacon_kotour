@@ -8,7 +8,6 @@ import torch
 from torch import nn
 from torchmetrics import MetricCollection, Accuracy, F1Score
 import os
-from focal_loss.focal_loss import FocalLoss
 
 def run_training(config, model, train_dataloader, valid_dataloader, optimizer, lr_scheduler):
     if torch.cuda.is_available():
@@ -17,7 +16,7 @@ def run_training(config, model, train_dataloader, valid_dataloader, optimizer, l
     device = torch.device(config.DEVICE)
     criterion = nn.CrossEntropyLoss()
     metrics_fn = MetricCollection([Accuracy(num_classes=config.DATA.NUM_CLASS).to(device), F1Score(num_classes=config.DATA.NUM_CLASS).to(device)])
-    model.to(device)
+    model = model.to(device)
 
     
     start = time.time()
@@ -88,8 +87,8 @@ def train_step(config, epoch, model, dataloader, optimizer, lr_scheduler, criter
 
         optimizer.zero_grad()
         
-        # if lr_scheduler is not None:
-        #     lr_scheduler.step_update((epoch*num_steps + step))
+        if lr_scheduler is not None:
+            lr_scheduler.step_update((epoch*num_steps + step))
 
 
         #logits, attn_map

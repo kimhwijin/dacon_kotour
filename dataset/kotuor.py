@@ -3,6 +3,8 @@ from torch.utils.data import Dataset, DataLoader
 import pandas as pd
 import os
 from sklearn.preprocessing import LabelEncoder
+
+from models.builder import build_model
 from .utils import _stratified_kfold
 from .image_aug import horizontal_flip, gray_scale, invert, solarize, elastic_transform, identity
 from PIL import Image
@@ -18,14 +20,19 @@ class KotourDataset(Dataset):
         self.config = config
         self.df = df
         self.train = train
+
         self.image_transform = A.Compose([
             A.Resize(config.MODEL.IMAGE.SIZE, config.MODEL.IMAGE.SIZE),
-            A.ShiftScaleRotate(p=0.5),
             A.RandomCrop(config.MODEL.IMAGE.SIZE, config.MODEL.IMAGE.SIZE, p=0.5),
+            A.ShiftScaleRotate(p=0.5),
+            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, p=1.0),
+            ToTensorV2(),
+        ]) if train else A.Compose([
+            A.Resize(config.MODEL.IMAGE.SIZE, config.MODEL.IMAGE.SIZE),
             A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225), max_pixel_value=255.0, p=1.0),
             ToTensorV2(),
         ])
-        
+
     def __getitem__(self, i):
         row = self.df.iloc[i]
 
@@ -40,8 +47,13 @@ class KotourDataset(Dataset):
         #Text
         input_ids = torch.tensor(row['input_ids'], dtype=torch.long)
         attn_masks = [1] * self.config.MODEL.IMAGE.MAX_SEQ + row['attn_masks'][:self.config.MODEL.MAX_SEQ - self.config.MODEL.IMAGE.MAX_SEQ]
-        # if self.train: 
-        #     attn_masks[row['black_out']] = 0
+        
+        if self.train and self.config.BLACK_OUT:
+            torch.randint(0, )
+            black_out_index = row['black_out']
+            
+            attn_masks[row['black_out']] = 0
+
         attn_masks = torch.tensor(attn_masks, dtype=torch.long)
 
         #Label
@@ -59,10 +71,10 @@ class Kotour():
     @classmethod
     def from_config(cls, config):
         train_df, test_df           = cls._get_dataframe(config)
-        train_df, test_df, le           = cls._preprocess_dataframe(config, train_df, test_df)
+        train_df, test_df, le       = cls._preprocess_dataframe(config, train_df, test_df)
         train_df                    = cls._data_augmentation(config, train_df)
         train_df, test_df           = cls._convert_text_to_ids(config, train_df, test_df)
-        # train_df                    = cls._get_attention_score(config, train_df)
+        train_df                    = cls._get_attention_score(config, train_df)
         train_df, valid_df          = cls._split_dataframe(config, train_df)
         train_ds, valid_ds, test_ds = KotourDataset(config, train_df), KotourDataset(config, valid_df), KotourDataset(config, test_df, False)
         train_dl, valid_dl, test_dl = cls._make_dataloader(config, train_ds, valid_ds, test_ds)
@@ -94,6 +106,7 @@ class Kotour():
     @staticmethod
     def _convert_text_to_ids(config, train_df, test_df):
         if not (os.path.exists(f"{config.DATA.TRAIN_PATH}/train.csv") and os.path.exists(f"{config.DATA.TRAIN_PATH}/test.csv")):
+            print("    Convert overview to id sequences...")
             tokenizer = get_tokenizer(config)
             def _tokenize(df, label=True):
                 _toked = df['overview'].map(
@@ -122,7 +135,47 @@ class Kotour():
 
     @staticmethod
     def _get_attention_score(config, train_df):
-        return 
+        
+        if not config.BLACK_OUT:
+            return train_df
+        
+        if os.path.exists(f'{config.DATA.TRAIN_PATH}/black_out.csv'):
+            train_df = pd.read_csv(f'{config.DATA.TRAIN_PATH}/black_out.csv')
+            return train_df
+        
+        s = torch.load(config.BEST)
+        device = torch.device(config.DEVICE)
+        best_config = s['config']
+        best_model = build_model(best_config).to(device)
+        best_model.load_state_dict(s['model'])
+        best_model = best_model.eval().to(device)
+
+
+        train_ds = KotourDataset(config, train_df, train=False)
+        train_dl = DataLoader(train_ds, shuffle=False, batch_size=config.DATA.BATCH_SIZE, num_workers=config.NUM_WORKERS)
+        pbar = tqdm(train_dl, total=len(train_dl), desc='    Calculating Attention Scores...')
+        black_out = {
+            "id": [],
+            "black_out" : []
+        }
+
+        from .utils import _step, _get_score
+
+        for data in pbar:
+            img_ids, imgs, input_ids, attn_masks = data
+            att_mats = torch.stack(_step(best_model, imgs.to(device), input_ids.to(device), attn_masks.to(device)))
+            for j in range(imgs.size(0)):
+                #att_mats : Layer Attn x Batch x Multi Head x Seq x Seq
+                att_mat = att_mats[:,j,:,:,:]
+                #att_mat : Layer Attn x Multi Head x Seq x Seq
+                black_out["black_out"].append(_get_score(att_mat, device, config.MODEL.IMAGE.MAX_SEQ))
+                black_out["id"].append(img_ids[j])
+
+        black_out = pd.DataFrame(black_out)
+        df = pd.merge(df, black_out, validate='one_to_one', on='id')
+        df.to_csv(f"{config.DATA.TRAIN_PATH}/black_out.csv")
+        return df
+
 
     @staticmethod
     def _split_dataframe(config, train_df):
@@ -165,7 +218,7 @@ class Kotour():
         def _ntimes(train_df, bool_index, t_augs, f_augs, c_augs):
             aug_df = train_df[bool_index].copy()
 
-            for i in tqdm(range(len(aug_df)), "Augmenting..."):
+            for i in tqdm(range(len(aug_df)), "    Augmenting..."):
                 row = aug_df.iloc[i]
                 img = Image.open(row['img_path'])
                 #
@@ -185,6 +238,7 @@ class Kotour():
             train_df = pd.concat([train_df, aug_df], ignore_index=True)
             return train_df
 
+        print("    Augmenting 12 times")
         # 12 times
         train_df = _ntimes(
             train_df, 
@@ -193,6 +247,7 @@ class Kotour():
             flip_augs, 
             color_augs
         )
+        print("    Augmenting 8 times")
         # 8 times
         train_df = _ntimes(
             train_df, 
@@ -201,6 +256,7 @@ class Kotour():
             flip_augs, 
             color_augs[:2]
         )
+        print("    Augmenting 4 times")
         # 4 times
         train_df = _ntimes(
             train_df, 
@@ -209,6 +265,7 @@ class Kotour():
             flip_augs, 
             color_augs[:2]
         )
+        print("    Augmenting 2 times")
         # 2 times
         train_df = _ntimes(
             train_df, 

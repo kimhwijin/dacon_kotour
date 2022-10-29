@@ -17,6 +17,7 @@ def parse_option():
     parser.add_argument('--tag', type=str)
     parser.add_argument('--seed', type=int)
     parser.add_argument('--num_workders', type=int)
+    parser.add_argument('--black_out', type=bool)
 
     # data
     parser.add_argument('--batch_size', type=int)
@@ -30,7 +31,8 @@ def parse_option():
     parser.add_argument('--img_model', type=str, default='vit')
     parser.add_argument('--txt_model', type=str, default='koelectra')
     parser.add_argument('--model_cfg', type=str, default='./configs/model/koelectra_vit_base_patch16_224.yaml')
-    
+    parser.add_argument('--best_model', type=str, default='./results/best.pth')
+
     # train
     parser.add_argument('--train_cfg', type=str, default='./configs/training.yaml')
     parser.add_argument('--optim', type=str, default='adamw')
@@ -57,19 +59,12 @@ if __name__ == '__main__':
     with open(f'{config.OUTPUT}/config.yaml', 'w') as f:
         f.write(config.dump())
 
-    sd = torch.load('./results/koelectra/ckpt_epoch_7.pth')
     set_seed(config.SEED)
 
     print('build loader');train_dl, valid_dl, test_dl, label_encoder = build_loader(config)    
     print('build model');model = build_model(config)
     print('build optimizer');optimizer = build_optimizer(config, model)
     print('build scheduler');scheduler = build_scheduler(config, optimizer, len(train_dl))
-
-    model.load_state_dict(sd['model'])
-    model.to(torch.device('cuda:0'))
-    optimizer.load_state_dict(sd['optimizer'])
-    scheduler.load_state_dict(sd['scheduler'])
-
     print('running');run_training(config, model, train_dl, valid_dl, optimizer, scheduler)
     print('predicting');predict_with_test(config, model, test_dl, label_encoder)
     print('finish!')

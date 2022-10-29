@@ -13,8 +13,13 @@ class Model(nn.Module):
         
         img_model = ViTModel.from_pretrained(config.MODEL.IMAGE.URL)
         self.img_embedding = img_model.embeddings
-        # txt_model = BertModel.from_pretrained(config.MODEL.TEXT.URL)
-        txt_model = ElectraModel.from_pretrained(config.MODEL.TEXT.URL)
+        if 'bert' in config.MODEL.TEXT.NAME:
+            txt_model = BertModel.from_pretrained(config.MODEL.TEXT.URL)
+        elif 'electra' in config.MODEL.TEXT.NAME:
+            txt_model = ElectraModel.from_pretrained(config.MODEL.TEXT.URL)
+        else:
+            txt_model = BertModel.from_pretrained(config.MODEL.TEXT.URL)
+            
         self.txt_embeddings, self.encoder, self.get_attn_mask = txt_model.embeddings, txt_model.encoder, txt_model.get_extended_attention_mask
         
         self.pooler = Pooler(config)
