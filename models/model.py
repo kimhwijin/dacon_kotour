@@ -1,10 +1,8 @@
 from multiprocessing import pool
-from numpy import polyder
 from torch import nn
 import torch
 from transformers import BertModel, ViTModel, ElectraModel
-from .text import TextModel
-from .img import ImgModel
+
 class Model(nn.Module):
     def __init__(self, config, output_attentions=False):
         super().__init__()

@@ -14,6 +14,7 @@ from albumentations.pytorch.transforms import ToTensorV2
 from skimage import io
 import torch
 from tqdm import tqdm
+import numpy as np
 
 class KotourDataset(Dataset):
     def __init__(self, config, df, train=True):
@@ -47,14 +48,17 @@ class KotourDataset(Dataset):
         #Text
         input_ids = torch.tensor(row['input_ids'], dtype=torch.long)
         attn_masks = [1] * self.config.MODEL.IMAGE.MAX_SEQ + row['attn_masks'][:self.config.MODEL.MAX_SEQ - self.config.MODEL.IMAGE.MAX_SEQ]
-        
-        if self.train and self.config.BLACK_OUT:
-            torch.randint(0, )
-            black_out_index = row['black_out']
-            
-            attn_masks[row['black_out']] = 0
-
         attn_masks = torch.tensor(attn_masks, dtype=torch.long)
+
+        if self.train and self.config.BLACK_OUT:
+            # index : 0 ~ Image Max Sequence - 1 ( sort by attention score of image sample )
+            black_out_rate = 10
+            sorted_score_index = np.array(row['black_out'])
+            length = len(sorted_score_index) # 196
+            black_out_cnt = np.random.randint(0, length//black_out_rate, 1)[0] # 0 ~ 10 % sequence black out
+            black_out_index = np.abs(np.random.normal(0, np.sqrt(length), black_out_cnt).astype(int))
+            attn_masks[black_out_index+1] = 0 # skip cls token
+
 
         #Label
         if self.train:
@@ -141,6 +145,9 @@ class Kotour():
         
         if os.path.exists(f'{config.DATA.TRAIN_PATH}/black_out.csv'):
             train_df = pd.read_csv(f'{config.DATA.TRAIN_PATH}/black_out.csv')
+            train_df['input_ids'] = train_df['input_ids'].apply(lambda x: list(map(int, x[1:-1].split(','))))
+            train_df['attn_masks'] = train_df['attn_masks'].apply(lambda x: list(map(int, x[1:-1].split(','))))
+            train_df['black_out'] = train_df['black_out'].apply(lambda x: list(map(int, x[1:-1].split(','))))
             return train_df
         
         s = torch.load(config.BEST)

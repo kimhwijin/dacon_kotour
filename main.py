@@ -60,13 +60,12 @@ if __name__ == '__main__':
         f.write(config.dump())
 
     set_seed(config.SEED)
-
-    print('build loader');train_dl, valid_dl, test_dl, label_encoder = build_loader(config)    
-    print('build model');model = build_model(config)
-    print('build optimizer');optimizer = build_optimizer(config, model)
-    print('build scheduler');scheduler = build_scheduler(config, optimizer, len(train_dl))
-    print('running');run_training(config, model, train_dl, valid_dl, optimizer, scheduler)
-    print('predicting');predict_with_test(config, model, test_dl, label_encoder)
-    print('finish!')
-    print(f'check {config.DATA.PATH}/sample_submission.csv')
+    print('Build loader');train_dl, valid_dl, test_dl, label_encoder = build_loader(config)    
+    print('Build model');model = build_model(config)
+    print('Build optimizer');optimizer = build_optimizer(config, model)
+    print('Build scheduler');scheduler = build_scheduler(config, optimizer, len(train_dl))
+    print('Running');run_training(config, model, train_dl, valid_dl, optimizer, scheduler)
+    print('Predicting');predict_with_test(config, model, test_dl, label_encoder)
+    print('Finish!')
+    print(f'Check {config.DATA.PATH}/sample_submission.csv')
     

@@ -13,7 +13,6 @@ aug_op = {
     'invert': [auto_augment.AugmentOp(*policy) for policy in auto_aug_policy['invert']],
     'solarize': [auto_augment.AugmentOp(*policy) for policy in auto_aug_policy['solarize']],
     'gray': [auto_augment.AugmentOp(*policy) for policy in auto_aug_policy['gray']],
-    
     'elastic_transform': [A.ElasticTransform(p=1.0), A.ShiftScaleRotate(p=1.0)]
 }
 
