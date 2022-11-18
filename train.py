@@ -1,13 +1,12 @@
-import torch
-from tqdm import tqdm
 import gc
 import time
-import numpy as np
-from collections import defaultdict
 import torch
+import numpy as np
 from torch import nn
+from tqdm import tqdm
+from collections import defaultdict
+from dataset.utils import attention_guied_dropout_mask
 from torchmetrics import MetricCollection, Accuracy, F1Score
-import os
 
 def run_training(config, model, train_dataloader, valid_dataloader, optimizer, lr_scheduler):
     if torch.cuda.is_available():
@@ -84,12 +83,14 @@ def train_step(config, epoch, model, dataloader, optimizer, lr_scheduler, criter
         input_ids = input_ids.to(device)
         attn_masks = attn_masks.to(device)
         labels = labels.to(device)
-
         optimizer.zero_grad()
         
         if lr_scheduler is not None:
             lr_scheduler.step_update((epoch*num_steps + step))
 
+        with torch.no_grad():
+            _, all_self_attentions = model(imgs, input_ids, attn_masks)
+            attn_masks = attention_guied_dropout_mask(attn_masks, all_self_attentions, dropout=0.5, threshold=1/attn_masks.shape[-1])
 
         #logits, attn_map
         logits, _ = model(imgs, input_ids, attn_masks)

@@ -1,35 +1,47 @@
-from sklearn.model_selection import KFold, StratifiedKFold
-import torch, gc
+import torch
 
-def _stratified_kfold(config, X, y):
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=config.SEED)
-    for train_index, test_index in skf.split(X, y):
-        return train_index, test_index
+def _get_attention_score(attn_matrix, device):
+    #attn_matrix : N Layer  x Batch x Head x Seq x Seq
 
-@torch.no_grad()
-def _step(model, images, input_ids, attn_masks):
-    img_embed = model.img_embedding(images)
-    txt_embed = model.txt_embedding(input_ids)
-    x = torch.cat((img_embed, txt_embed), axis=1)
-    attn_masks = model.get_attn_mask(attn_masks, attn_masks.shape, attn_masks.device)
-    attention_maps = model.encoder(x, attn_masks, output_attentions=True).attentions
-    return attention_maps
+    # N Layer x Batch x Seq x Seq
+    attn_matrix = torch.mean(attn_matrix, dim=2)
 
-@torch.no_grad()
-def _get_score(att_mat, device, max_seq):
-    #att_mat : (Layer Attn x Heads x Seq x Seq)
-    att_mat = torch.mean(att_mat, dim=1)
-    residual_att = torch.eye(att_mat.size(1)).to(device)
-    aug_att_mat = att_mat + residual_att
-    aug_att_mat = aug_att_mat / aug_att_mat.sum(dim=-1).unsqueeze(-1)
-    joint_attentions = torch.zeros(aug_att_mat.size()).to(device)
-    joint_attentions[0] = aug_att_mat[0]
+    # Seq x Seq
+    residual_attn = torch.eye(attn_matrix.size(2)).to(device)
+    # N Layer x Batch x Seq x Seq
+    aug_attn = attn_matrix + residual_attn
+    # N Layer x Batch x Seq x Seq
+    aug_attn = aug_attn / aug_attn.sum(dim=-1).unsqueeze(-1)
+    # N Layer x Batch x Seq x Seq
+    joint_attn = torch.zeros(aug_attn.size()).to(device)
+    joint_attn[0] = aug_attn[0]
 
-    for n in range(1, aug_att_mat.size(0)):
-        joint_attentions[n] = torch.matmul(aug_att_mat[n], joint_attentions[n-1])
+    for n in range(1, aug_attn.size(0)):
+        joint_attn[n] = torch.bmm(aug_attn[n], joint_attn[n-1])
     
-    v = joint_attentions[-1][:max_seq, :max_seq]
-    # mask : (196, )
-    mask = v[0, 1:]
-    arg_sorted = torch.argsort(mask)
-    return arg_sorted.detach().cpu().numpy()
+    #Batch x Seq x Seq
+    attn_scores = joint_attn[-1]
+    #Batch x Seq - 1 ( cls token score )
+    attn_scores = attn_scores[:, 0, 1:].softmax(-1)
+    return attn_scores
+
+
+@torch.no_grad()
+def attention_guied_dropout_mask(attention_masks, all_self_attentions, dropout, threshold, device):
+    # attention_masks : Batch x Seq
+    # all_self_attentions : Tuple ( N Layers, )
+    # all_self_attentions : Tensor ( Batch x Head x Seq x Seq )
+    
+    # N layer x Batch x Head x Seq x Seq
+    all_self_attentions = torch.stack(all_self_attentions).to(device)
+
+    # Batch x Seq - 1 ( except cls token )
+    # Score : 0 ~ 1
+    attention_scores = _get_attention_score(all_self_attentions, device)
+
+    # Batch x Seq - 1
+    apply_dropout_indices = attention_scores < threshold
+    # Batch x Seq - 1
+    indices = (torch.Tensor(apply_dropout_indices.size()).uniform_(0, 1) < dropout) * apply_dropout_indices
+    attention_masks[:, 1:][indices] = 1
+    return attention_masks
